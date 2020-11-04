@@ -8,7 +8,7 @@ buildkernel \- build secure boot kernel, save to EFI system partition
 \fBbuildkernel\fR is a script that builds a Gentoo Linux EFI stub kernel
 which is suitable for booting from a USB key using UEFI (no additional
 bootloader required). It makes use of the initramfs creation tools
-(and early userspace \fBinit\fR(8) script) provided by \fBgenkernel\fR(8).
+(and early userspace \fBinit\fR(8) script) provided by \fBdracut\fR(8).
 
 Specifically, the assumed use-case for \fBbuildkernel\fR is where you are creating a kernel
 for use in a dual-factor-authenticated LVM-over-LUKS system, booting from an
@@ -52,10 +52,10 @@ enters the \fI/usr/src/linux\fR directory;
 .IP \(bu 2
 copies a .config file from the currently running kernel (via \fI/proc/config.gz\fR) if no config already exists in \fI/usr/src/linux\fR, and sanitizes/updates it with \fBmake olddefconfig\fR;
 .IP \(bu 2
-conforms the .config, by setting/unsetting various key parameters that are required for the kernel to boot successfully in EFI mode, including the somewhat complex kernel command line (which contains directives targeted both at the kernel, and at the \fBinit\fR(8) script provided by \fBgenkernel\fR(8)); required settings for
+conforms the .config, by setting/unsetting various key parameters that are required for the kernel to boot successfully in EFI mode, including the somewhat complex kernel command line (which contains directives targeted both at the kernel, and at the \fBinit\fR(8) script provided by \fBdracut\fR(8)); required settings for
 \fBsystemd\fR(1) are also conformed;
 .IP \(bu 2
-calls your user hook function \fBuser_conform_config_file\fR if you have defined it in \fI/etc/genkernel.conf\fR (you'll only generally want to do this to override unwanted changes made by \fBbuildkernel\fR in the above step; other changes should be made via the standard \fBmake menuconfig\fR route, per the step below; they will be persisted);
+calls your user hook function \fBuser_conform_config_file\fR if you have defined it in \fI/etc/buildkernel.conf\fR (you'll only generally want to do this to override unwanted changes made by \fBbuildkernel\fR in the above step; other changes should be made via the standard \fBmake menuconfig\fR route, per the step below; they will be persisted);
 .IP \(bu 2
 allows you to modify the resulting configuration using the standard \fBmake menuconfig\fR tool (you can force this to happen, even in non-interactive mode, with \fB--menuconfig\fR, and you will be asked whether you wish to do so in interactive mode (set by \fB--ask\fR)); if you choose not to run \fBmake menuconfig\fR, \fBmake olddefconfig\fR will be run instead (which silently sanitizes/upgrades the conformed \fB.config\fR);
 .IP \(bu 2
@@ -65,13 +65,11 @@ builds the kernel, and its modules, with the specified configuration; in this fi
 .IP \(bu 2
 builds any external modules (such as those required for VirtualBox), using \fBemerge @module-rebuild\fR, if you so specify (using the option \fB--rebuild-external-modules\fR), and optionally signs them (if you have set up the variables \fBKERNEL_SIGNING_CERT\fR and \fBKERNEL_SIGNING_KEY\fR in \fI/etc/buildkernel.conf\fR);
 .IP \(bu 2
-creates a first cut of the initramfs using \fBgenkernel\fR(8) (see below for more details); this will contain \fBgenkernel\fR(8)'s \fBinit\fR(8) script, compiled modules, any necessary firmware (if you haven't deblobbed), and a minimal set of binaries; it does \fInot\fR at this point contain a static copy of \fBgpg\fR;
+creates a first cut of the initramfs using \fBdracut\fR(8) (see below for more details); this will contain \fBdracut\fR(8)'s \fBinit\fR(8) script, compiled modules, any necessary firmware (if you haven't deblobbed), and a minimal set of binaries; it does \fInot\fR at this point contain a static copy of \fBgpg\fR;
 .IP \(bu 2
 unpacks the initramfs, to the \fI/boot/initramfs\fR directory;
 .IP \(bu 2
-modifies the initramfs by copying the \fI/etc/modprobe.d\fR directory contents across to it, and the static v1.x \fBgpg\fR(1) binary mentioned earlier (if this does not already exist, \fBbuildkernel\fR will create it);
-.IP \(bu 2
-calls your user hook function \fBuser_modify_initramfs\fR if you have defined it in \fI/etc/genkernel.conf\fR (you don't need it to make the boot work);
+calls your user hook function \fBuser_modify_initramfs\fR if you have defined it in \fI/etc/buildkernel.conf\fR (you don't need it to make the boot work);
 .IP \(bu 2
 repacks the initramfs into \fI/boot/initramfs.cpio\fR (the unpacked copy is left at \fI/boot/initramfs\fR too, for reference, since it's useful to be able to see what is in this archive at a glance);
 .IP \(bu 2
@@ -83,7 +81,7 @@ signs the kernel so it will secure boot;
 .IP \(bu 2
 backs up the old kernel and config on the EFI system partition, if any are present;
 .IP \(bu 2
-copies the newly built kernel (which is configured so as to be an EFI executable), into \fI/boot/efi/EFI/Boot/bootx64.efi\fR (the magic location expected by most UEFI BIOSes; you can override this \(em see \fBgenkenrnel.conf\fR(5)); and also copies the config to the same directory;
+copies the newly built kernel (which is configured so as to be an EFI executable), into \fI/boot/efi/EFI/Boot/bootx64.efi\fR (the magic location expected by most UEFI BIOSes; you can override this \(em see \fBbuildkernel.conf\fR(5)); and also copies the config to the same directory;
 .IP \(bu 2
 ensures that an EFI boot entry for the new kernel exists, and that it
 is placed at the top of the EFI boot order (N.B., it is only possible
@@ -259,8 +257,11 @@ This is free software, you are free to change and redistribute it.
 There is NO WARRANTY, to the extent permitted by law.
 .fi
 .SH AUTHORS
+TheGreatMcPain \(em send bug reports or comments for this fork to <sixsupersonic@gmail.com>
+.SH ORIGINAL_AUTHOR
 sakaki \(em send bug reports or comments to <sakaki@deciban.com>
 .SH "SEE ALSO"
+.BR dracut (8),
 .BR emerge (1),
 .BR gpg (1),
 .BR make (1),
