@@ -113,15 +113,8 @@ One parameter you may wish to consider here is "root_trim=yes"; this will
 enable TRIM support on the encrypted LUKS partition (turned off by default).
 .br
 .TP
-.BR ADDITIONALGENKERNELOPTS
-By default, \fBgenkernel\fR(8) will be instructed by \fBbuildkernel\fR(8) to
-include all firmware and kernel modules into the initramfs; if you do not want
-this (for example, to minimize the size of your final kernel), or if you would
-rather manage the settings explicitly via \fI/etc/genkernel.conf\fR, specify
-the the desired options (which may be simply an empty string) here.
-
-\fBCaution\fR - choosing not to include the firmware or kernel modules may cause
-boot issues on some systems.
+.BR ADDITIONALDRACUTOPTS
+Specify extra options for \fBdracut\fR here.
 .br
 .TP
 .BR KEYMAP

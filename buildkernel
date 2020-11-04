@@ -70,7 +70,7 @@ SECUREBOOTKEY="/etc/efikeys/db.key"
 SECUREBOOTCERT="/etc/efikeys/db.crt"
 SIGNEDSUFFIX=".signed"
 ADDITIONALKERNELCMDS=""
-ADDITIONALGENKERNELOPTS="--all-ramdisk-modules --firmware"
+ADDITIONALDRACUTOPTS=""
 CMDLINE_REAL_ROOT="/dev/mapper/vg1-root"
 CMDLINE_REAL_RESUME="/dev/mapper/vg1-swap"
 declare -i DEFAULTCREATEEFIBOOT=1
@@ -1901,7 +1901,7 @@ create_initramfs_using_dracut() {
     if [ -z "${PLYMOUTHTHEME}" ]; then
         DRACUT_OPTS+="--omit plymouth "
     fi
-    DRACUT_OPTS+="--no-compress"
+    DRACUT_OPTS+="--no-compress ${ADDITIONALDRACUTOPTS}"
 
     extract_kernel_release_name
     dracut ${DRACUT_OPTS} --kver $(echo $NEWVERSION | sed "s/linux-//")
@@ -1927,7 +1927,7 @@ create_initramfs_using_genkernel() {
     GENKERNEL_OPTS+="--no-gpg --udev "
     GENKERNEL_OPTS+="--kernel-config=\"${TARGETCONFIG}\" --busybox "
     GENKERNEL_OPTS+="--no-compress-initramfs "
-    GENKERNEL_OPTS+="${ADDITIONALGENKERNELOPTS} ${PLYMOUTH_OPTS} initramfs"
+    GENKERNEL_OPTS+="${PLYMOUTH_OPTS} initramfs"
     genkernel ${GENKERNEL_OPTS}
     # re-extract release details, in case these have changed
     # (e.g. due to 'SCM dirty suffix' having been added (a '+' sign))
