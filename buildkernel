@@ -522,11 +522,7 @@ setup_final_variables() {
         CMDLINE_ROOTFSTYPE="$(/bin/findmnt -n -o FSTYPE -S ${CMDLINE_REAL_ROOT} 2>/dev/null || echo ext4)"
         CMDLINE_ROOTFSTYPE="$(head -n 1 <<<"${CMDLINE_ROOTFSTYPE}")"
     fi
-    # we use path syntax rather than "=PARTUUID=" syntax, as more reliable
-
-    # This commented code was used to replicate the cmdline that dracut --print-cmdline
-    # would make, but now that I think about it I think it would be easier to lets
-    # 'dracut --host-only' handle that.
+    # The original buildkernel uses PARTUUID, but dracut requires UUID
     local CRYPTUUID="$(partuuid_to_uuid ${CRYPTPARTUUID})"
     KERNEL_CMD_LINE="root=${CMDLINE_REAL_ROOT} rd.luks.uuid=luks-${CRYPTUUID} "
     if ((DISABLE_LVM==1)); then
@@ -536,7 +532,7 @@ setup_final_variables() {
     KERNEL_CMD_LINE+="rootflags=$(get_rootflags) "
     KERNEL_CMD_LINE+="init=${CMDLINE_REAL_INIT} "
     if [ -n "${LUKSKEYFILE}" ]; then
-        # Convert PARTUUID to UUID
+        # rd.luks.key doesn't like PARTUUID
         local KEYFILEUUID="$(partuuid_to_uuid ${KEYFILEPARTUUID})"
         KERNEL_CMD_LINE+="rd.luks.key=${LUKSKEYFILE}:UUID=${KEYFILEUUID} "
     fi
