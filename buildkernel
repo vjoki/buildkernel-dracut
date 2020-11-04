@@ -105,10 +105,6 @@ VERBOSITY=1
 PREFIXSTRING="* "
 SHOWPREFIX="${GREEN_TEXT}${PREFIXSTRING}${RESET_ATTS}"
 SHOWSUFFIX=""
-GPG1PATHFROM="/usr/bin/staticgpg"
-GPG1PATHTO="${INITRAMFSDIR}/usr/bin/gpg"
-GPGBUILDDIR="/root/tmpgpgbuild"
-TMPGPGPATH="${GPGBUILDDIR}/usr/bin/gpg"
 declare -i USINGUSBKEYFOREFI=0
 declare -i BACKUPOLDKERNEL=1
 declare -i BUILT_EXTERNAL_MODULES=1
@@ -1908,32 +1904,6 @@ create_initramfs_using_dracut() {
     INITRAMFSNAME="${INITRAMFSDRACUT}"
     cp ${VERBOSITYFLAG} "${BOOTDIR}/${INITRAMFSNAME}" "${UNCOMPRESSEDINITRAMFS}"
 }
-create_initramfs_using_genkernel() {
-    show "Creating initramfs (uncompressed)..."
-    # this is a partial use of genkernel, we don't use it to build the kernel
-    # itself; also note, we build an uncompressed ramdisk, as the kernel
-    # build process will compress it on integration into the
-    # unified kernel image
-    # we suppress gpg here as we don't want to add gpg v2 which is installed,
-    # but rather our static gpg v1, which will be inserted into the initramfs
-    local PLYMOUTH_OPTS=""
-    if [ -n "${PLYMOUTHTHEME}" ]; then
-        PLYMOUTH_OPTS="--plymouth --plymouth-theme=${PLYMOUTHTHEME}"
-    fi
-    GENKERNEL_OPTS="--install --no-mountboot --luks "
-    if ((DISABLE_LVM==0)); then
-        GENKERNEL_OPTS+="--lvm "
-    fi
-    GENKERNEL_OPTS+="--no-gpg --udev "
-    GENKERNEL_OPTS+="--kernel-config=\"${TARGETCONFIG}\" --busybox "
-    GENKERNEL_OPTS+="--no-compress-initramfs "
-    GENKERNEL_OPTS+="${PLYMOUTH_OPTS} initramfs"
-    genkernel ${GENKERNEL_OPTS}
-    # re-extract release details, in case these have changed
-    # (e.g. due to 'SCM dirty suffix' having been added (a '+' sign))
-    extract_kernel_release_name
-    cp ${VERBOSITYFLAG} "${BOOTDIR}/${INITRAMFSNAME}" "${UNCOMPRESSEDINITRAMFS}"
-}
 unpack_initramfs_dracut() {
     show "Unpacking initramfs cpio archive to ${INITRAMFSDIR}..."
     if [ ! -d "${INITRAMFSDIR}" ]; then
@@ -1945,43 +1915,7 @@ unpack_initramfs_dracut() {
     # of the actual initramfs. We use the builtin skipcpio program to get to it.
     (cd "${INITRAMFSDIR}"; /usr/lib/dracut/skipcpio ${UNCOMPRESSEDINITRAMFS} | cpio --extract)
 }
-unpack_initramfs() {
-    show "Unpacking initramfs cpio archive to ${INITRAMFSDIR}..."
-    if [ ! -d "${INITRAMFSDIR}" ]; then
-        mkdir "${INITRAMFSDIR}"
-    else
-        rm ${VERBOSITYFLAG} -rf "${INITRAMFSDIR}"/* # wipe any old data
-    fi
-    (cd "${INITRAMFSDIR}"; cpio --extract --file="${UNCOMPRESSEDINITRAMFS}")
-}
-# build_static_gpg() {
-#     # gnupg not slotted unfortunately, so we do this instead
-#     show "Building static gpg 1.x for use in initramfs..."
-#     emerge ${VERBOSITYFLAG} "app-crypt/staticgpg"
-# }
 modify_initramfs() {
-    ## Commented out since dracut's crypt-gpg module handles this.
-    # if [ -n "${LUKSKEYFILE}" ]; then
-    #     if [ ! -x "${GPG1PATHFROM}" ]; then
-    #         if ((ARG_ASK==1)); then
-    #             continue_yn "No static gpg found, would you like to build it?"
-    #         else
-    #             show "No static gpg found, so creating one..."
-    #         fi
-    #         build_static_gpg
-    #     fi
-    #     show "Copying static gpg program into initramfs..."
-    #     cp ${VERBOSITYFLAG} "${GPG1PATHFROM}" "${GPG1PATHTO}"
-    # fi
-
-    ## Commented out since dracut --host-only handles kernel modules automatically.
-    # if ((USINGMODULES==1)); then
-    #     show "Copying contents of ${MODPROBEDIR} directory into initramfs..."
-    #     if [ "$(ls -A ${MODPROBEDIR})" ]; then
-    #         cp ${VERBOSITYFLAG} "${MODPROBEDIR}"/* "${INITRAMFSDIR}${MODPROBEDIR}/"
-    #     fi
-    # fi
-
     # you can define user_modify_initramfs in your buildkernel.conf file...
     if fn_exists user_modify_initramfs; then
         show "Calling user_modify_initramfs function..."
@@ -2378,10 +2312,8 @@ if ((ARG_COPYFROMSTAGING==0)); then
     kernel_build_pass_1         # with empty initramfs
     rebuild_external_modules_if_necessary
     create_initramfs_using_dracut
-    # create_initramfs_using_genkernel
     unpack_initramfs_dracut
-    # unpack_initramfs
-    modify_initramfs            # make sure our static gpg is in there!
+    modify_initramfs
     repack_initramfs
     kernel_build_pass_2         # with real initramfs
     sign_kernel_if_possible     # if key/certificate available, for secure boot
