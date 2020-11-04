@@ -1954,31 +1954,33 @@ unpack_initramfs() {
     fi
     (cd "${INITRAMFSDIR}"; cpio --extract --file="${UNCOMPRESSEDINITRAMFS}")
 }
-build_static_gpg() {
-    # gnupg not slotted unfortunately, so we do this instead
-    show "Building static gpg 1.x for use in initramfs..."
-    emerge ${VERBOSITYFLAG} "app-crypt/staticgpg"
-}
+# build_static_gpg() {
+#     # gnupg not slotted unfortunately, so we do this instead
+#     show "Building static gpg 1.x for use in initramfs..."
+#     emerge ${VERBOSITYFLAG} "app-crypt/staticgpg"
+# }
 modify_initramfs() {
-    if [ -n "${LUKSKEYFILE}" ]; then
-        if [ ! -x "${GPG1PATHFROM}" ]; then
-            if ((ARG_ASK==1)); then
-                continue_yn "No static gpg found, would you like to build it?"
-            else
-                show "No static gpg found, so creating one..."
-            fi
-            build_static_gpg
-        fi
-        show "Copying static gpg program into initramfs..."
-        cp ${VERBOSITYFLAG} "${GPG1PATHFROM}" "${GPG1PATHTO}"
-    fi
+    ## Commented out since dracut's crypt-gpg module handles this.
+    # if [ -n "${LUKSKEYFILE}" ]; then
+    #     if [ ! -x "${GPG1PATHFROM}" ]; then
+    #         if ((ARG_ASK==1)); then
+    #             continue_yn "No static gpg found, would you like to build it?"
+    #         else
+    #             show "No static gpg found, so creating one..."
+    #         fi
+    #         build_static_gpg
+    #     fi
+    #     show "Copying static gpg program into initramfs..."
+    #     cp ${VERBOSITYFLAG} "${GPG1PATHFROM}" "${GPG1PATHTO}"
+    # fi
 
-    if ((USINGMODULES==1)); then
-        show "Copying contents of ${MODPROBEDIR} directory into initramfs..."
-        if [ "$(ls -A ${MODPROBEDIR})" ]; then
-            cp ${VERBOSITYFLAG} "${MODPROBEDIR}"/* "${INITRAMFSDIR}${MODPROBEDIR}/"
-        fi
-    fi
+    ## Commented out since dracut --host-only handles kernel modules automatically.
+    # if ((USINGMODULES==1)); then
+    #     show "Copying contents of ${MODPROBEDIR} directory into initramfs..."
+    #     if [ "$(ls -A ${MODPROBEDIR})" ]; then
+    #         cp ${VERBOSITYFLAG} "${MODPROBEDIR}"/* "${INITRAMFSDIR}${MODPROBEDIR}/"
+    #     fi
+    # fi
 
     # you can define user_modify_initramfs in your buildkernel.conf file...
     if fn_exists user_modify_initramfs; then
@@ -2379,7 +2381,7 @@ if ((ARG_COPYFROMSTAGING==0)); then
     # create_initramfs_using_genkernel
     unpack_initramfs_dracut
     # unpack_initramfs
-    # modify_initramfs            # make sure our static gpg is in there!
+    modify_initramfs            # make sure our static gpg is in there!
     repack_initramfs
     kernel_build_pass_2         # with real initramfs
     sign_kernel_if_possible     # if key/certificate available, for secure boot
