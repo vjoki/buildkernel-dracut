@@ -181,7 +181,7 @@ declare -i DOUNMOUNT=1
 # program arguments (booleans in this case)
 declare -i ARG_ASK=0 ARG_CLEAN=0 ARG_COPYFROMSTAGING=0 ARG_HELP=0
 declare -i ARG_STAGEONLY=0 ARG_UNMOUNTATEND=0 ARG_VERBOSE=0 ARG_VERSION=0
-declare -i ARG_POSTCLEAR=0 ARG_MENUCONFIG=0 ARG_SNAPSHOTBACKUP=0
+declare -i ARG_MENUCONFIG=0 ARG_SNAPSHOTBACKUP=0
 declare -i ARG_EASYSETUP=0 ARG_IS_NEW_KERNEL_AVAILABLE=0
 declare -i ARG_REBUILD_EXTERNAL_MODULES=0 ARG_ALERT=0
 # non-boolean arguments
@@ -1920,15 +1920,11 @@ create_initramfs_using_genkernel() {
     if [ -n "${PLYMOUTHTHEME}" ]; then
         PLYMOUTH_OPTS="--plymouth --plymouth-theme=${PLYMOUTHTHEME}"
     fi
-    local POSTCLEAR_FLAG=""
-    if ((ARG_POSTCLEAR==1)); then
-        POSTCLEAR_FLAG="--postclear" # clear all caches after genkenrel run
-    fi
     GENKERNEL_OPTS="--install --no-mountboot --luks "
     if ((DISABLE_LVM==0)); then
         GENKERNEL_OPTS+="--lvm "
     fi
-    GENKERNEL_OPTS+="--no-gpg --udev ${POSTCLEAR_FLAG} "
+    GENKERNEL_OPTS+="--no-gpg --udev "
     GENKERNEL_OPTS+="--kernel-config=\"${TARGETCONFIG}\" --busybox "
     GENKERNEL_OPTS+="--no-compress-initramfs "
     GENKERNEL_OPTS+="${ADDITIONALGENKERNELOPTS} ${PLYMOUTH_OPTS} initramfs"
@@ -2204,7 +2200,6 @@ Options:
                         a different version from that built in the staging area
                         (at /boot), or 1 otherwise
   -m, --menuconfig      show kernel configuration GUI, even if non-interactive
-  -p, --postclear       clear genkernel temporary files and caches after run
   -r, --adjustment=N    add integer N to the make niceness -20<=N<=19
                         (the default is 19; this runs make at the lowest
                         priority to avoid slowing the system too much)
@@ -2279,7 +2274,7 @@ process_command_line_options() {
     declare -i RC
     set +e
         # error trapping off, as we want to handle errors
-        TEMP="$(getopt -o aAbcefhimpr:suvxV --long ask,alert,snapshot-backup,clean,easy-setup,copy-from-staging,help,is-new-kernel-available,menuconfig,postclear,adjustment:,stage-only,verbose,unmount-at-end,rebuild-external-modules,version -n "${PROGNAME}" -- "${@}")"
+        TEMP="$(getopt -o aAbcefhimpr:suvxV --long ask,alert,snapshot-backup,clean,easy-setup,copy-from-staging,help,is-new-kernel-available,menuconfig,adjustment:,stage-only,verbose,unmount-at-end,rebuild-external-modules,version -n "${PROGNAME}" -- "${@}")"
         RC="${?}"
     set -e
     if ((RC!=0)); then
@@ -2299,7 +2294,6 @@ process_command_line_options() {
             -h|--help) ARG_HELP=1 ; shift ;;
             -i|--is-new-kernel-available) ARG_IS_NEW_KERNEL_AVAILABLE=1 ; shift ;;
             -m|--menuconfig) ARG_MENUCONFIG=1 ; shift ;;
-            -p|--postclear) ARG_POSTCLEAR=1 ; shift ;;
             -r|--adjustment)
                 case "${2}" in
                     "") shift 2 ;;
