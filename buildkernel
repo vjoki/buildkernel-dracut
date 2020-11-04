@@ -399,7 +399,12 @@ check_partuuid_exists() {
 }
 # Returns the UUID of the given PARTUUID
 partuuid_to_uuid() {
+    check_partuuid_exists ${1}
     blkid "${PARTUUIDDEVDIR}/${1}" -o value -s UUID
+}
+# Returns the options for mounting root
+get_rootflags() {
+    findmnt -e -v -n -o OPTIONS --target /
 }
 source_etc_conf_file() {
     # get the variables the user must set, and any overrides
@@ -511,32 +516,33 @@ setup_final_variables() {
     # has been set explicitly in buildkernel.conf
     KEYFILEPARTUUID="${KEYFILEPARTUUID:-${EFIPARTUUID}}"
     KEYFILEPATHMAP="${PARTUUIDDEVDIR}/${KEYFILEPARTUUID}"
-    # # get the real root filesystem type if not specified
-    # # falling back to ext4 if the findmnt-based lookup fails
-    # if [[ ! -v CMDLINE_ROOTFSTYPE ]]; then
-    #     CMDLINE_ROOTFSTYPE="$(/bin/findmnt -n -o FSTYPE -S ${CMDLINE_REAL_ROOT} 2>/dev/null || echo ext4)"
-    #     CMDLINE_ROOTFSTYPE="$(head -n 1 <<<"${CMDLINE_ROOTFSTYPE}")"
-    # fi
+    # get the real root filesystem type if not specified
+    # falling back to ext4 if the findmnt-based lookup fails
+    if [[ ! -v CMDLINE_ROOTFSTYPE ]]; then
+        CMDLINE_ROOTFSTYPE="$(/bin/findmnt -n -o FSTYPE -S ${CMDLINE_REAL_ROOT} 2>/dev/null || echo ext4)"
+        CMDLINE_ROOTFSTYPE="$(head -n 1 <<<"${CMDLINE_ROOTFSTYPE}")"
+    fi
     # we use path syntax rather than "=PARTUUID=" syntax, as more reliable
 
-    ## This commented code was used to replicate the cmdline that dracut --print-cmdline
-    ## would make, but now that I think about it I think it would be easier to lets
-    ## 'dracut --host-only' handle that.
-    # local CRYPTUUID="$(partuuid_to_uuid ${CRYPTPARTUUID})"
-    # KERNEL_CMD_LINE="root=${CMDLINE_REAL_ROOT} rd.luks.uuid=luks-${CRYPTUUID} "
-    # if ((DISABLE_LVM==0)); then
-    #     KERNEL_CMD_LINE+="rd.lvm.lv=vg1/root rd.lvm.lv=vg1/swap "
-    # fi
-    # KERNEL_CMD_LINE+="rootfstype=${CMDLINE_ROOTFSTYPE} "
-    KERNEL_CMD_LINE="init=${CMDLINE_REAL_INIT} "
+    # This commented code was used to replicate the cmdline that dracut --print-cmdline
+    # would make, but now that I think about it I think it would be easier to lets
+    # 'dracut --host-only' handle that.
+    local CRYPTUUID="$(partuuid_to_uuid ${CRYPTPARTUUID})"
+    KERNEL_CMD_LINE="root=${CMDLINE_REAL_ROOT} rd.luks.uuid=luks-${CRYPTUUID} "
+    if ((DISABLE_LVM==1)); then
+        KERNEL_CMD_LINE+="rd.lvm=0 "
+    fi
+    KERNEL_CMD_LINE+="rootfstype=${CMDLINE_ROOTFSTYPE} "
+    KERNEL_CMD_LINE+="rootflags=$(get_rootflags) "
+    KERNEL_CMD_LINE+="init=${CMDLINE_REAL_INIT} "
     if [ -n "${LUKSKEYFILE}" ]; then
         # Convert PARTUUID to UUID
         local KEYFILEUUID="$(partuuid_to_uuid ${KEYFILEPARTUUID})"
         KERNEL_CMD_LINE+="rd.luks.key=${LUKSKEYFILE}:UUID=${KEYFILEUUID} "
     fi
-    # if ((DISABLE_HIBERNATION==0)); then
-    #     KERNEL_CMD_LINE+="resume=${CMDLINE_REAL_RESUME} "
-    # fi
+    if ((DISABLE_HIBERNATION==0)); then
+        KERNEL_CMD_LINE+="resume=${CMDLINE_REAL_RESUME} "
+    fi
     KERNEL_CMD_LINE+="rc.vconsole.keymap=${KEYMAP}"
     if [ -n "${PLYMOUTHTHEME}" ]; then
         KERNEL_CMD_LINE+=" quiet splash"
@@ -1885,13 +1891,16 @@ rebuild_external_modules_if_necessary() {
 create_initramfs_using_dracut() {
     show "Creating initramfs (uncompressed)..."
     # Use host-only to get the necessary commands for our setup.
-    DRACUT_OPTS="--host-only --force "
+    DRACUT_OPTS="--host-only --no-hostonly-cmdline --force "
     # Add crypt-gpg if using a luks-key.gpg file.
     if [ -n "${LUKSKEYFILE}" ]; then
         DRACUT_OPTS+="--add crypt-gpg "
     fi
     if ((DISABLE_HIBERNATION==1)); then
         DRACUT_OPTS+="--omit resume "
+    fi
+    if ((DISABLE_LVM==1)); then
+        DRACUT_OPTS+="--omit lvm "
     fi
     if [ -z "${PLYMOUTHTHEME}" ]; then
         DRACUT_OPTS+="--omit plymouth "
