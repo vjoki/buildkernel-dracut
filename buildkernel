@@ -28,7 +28,7 @@ shopt -s nullglob
 
 # Scroll to the bottom of this script to follow the main program flow.
 
-# ********************** variables ********************* 
+# ********************** variables *********************
 PROGNAME="$(basename "${0}")"
 CONFFILE="/etc/${PROGNAME}.conf"
 VERSION="1.0.37"
@@ -187,7 +187,7 @@ declare -i ARG_REBUILD_EXTERNAL_MODULES=0 ARG_ALERT=0
 # non-boolean arguments
 declare -i ADJUSTMENT=19
 
-# ***************** various functions ****************** 
+# ***************** various functions ******************
 cleanup_and_exit_with_code() {
     # add any additional cleanup code here
     set +e
@@ -292,6 +292,7 @@ extract_kernel_release_name() {
     # LINUXBUILDDIR must be defined and non-blank on entry
     NEWVERSION="linux-$(cd "${LINUXBUILDDIR}" && make -s kernelrelease)"
     INITRAMFSNAME="$(echo $NEWVERSION | sed "s/linux/initramfs-genkernel-x86_64/")"
+    INITRAMFSDRACUT="$(echo $NEWVERSION | sed "s/linux/initramfs/").img"
     VMLINUZNAME="$(echo $NEWVERSION | sed "s/linux/vmlinuz/")"
 }
 check_gcc_config_and_reset_if_necessary() {
@@ -334,7 +335,7 @@ mount_and_remember() {
     local DEVPATH="${1}"
     local MOUNTPOINT="${2}"
     local TYPE=${3:-""}
-    
+
     if [[ "${ALLMOUNTS[${MOUNTPOINT}]+_}" ]]; then
         warning "Attempt to mount '${MOUNTPOINT}' more than once"
     else
@@ -395,6 +396,10 @@ check_partuuid_exists() {
     if [ ! -h "${PARTUUIDDEVDIR}/${1}" ]; then
         die "Partition with UUID '${1}' does not exist"
     fi
+}
+# Returns the UUID of the given PARTUUID
+partuuid_to_uuid() {
+    blkid "${PARTUUIDDEVDIR}/${1}" -o value -s UUID
 }
 source_etc_conf_file() {
     # get the variables the user must set, and any overrides
@@ -506,26 +511,33 @@ setup_final_variables() {
     # has been set explicitly in buildkernel.conf
     KEYFILEPARTUUID="${KEYFILEPARTUUID:-${EFIPARTUUID}}"
     KEYFILEPATHMAP="${PARTUUIDDEVDIR}/${KEYFILEPARTUUID}"
-    # get the real root filesystem type if not specified
-    # falling back to ext4 if the findmnt-based lookup fails
-    if [[ ! -v CMDLINE_ROOTFSTYPE ]]; then
-        CMDLINE_ROOTFSTYPE="$(/bin/findmnt -n -o FSTYPE -S ${CMDLINE_REAL_ROOT} 2>/dev/null || echo ext4)"
-        CMDLINE_ROOTFSTYPE="$(head -n 1 <<<"${CMDLINE_ROOTFSTYPE}")"
-    fi
+    # # get the real root filesystem type if not specified
+    # # falling back to ext4 if the findmnt-based lookup fails
+    # if [[ ! -v CMDLINE_ROOTFSTYPE ]]; then
+    #     CMDLINE_ROOTFSTYPE="$(/bin/findmnt -n -o FSTYPE -S ${CMDLINE_REAL_ROOT} 2>/dev/null || echo ext4)"
+    #     CMDLINE_ROOTFSTYPE="$(head -n 1 <<<"${CMDLINE_ROOTFSTYPE}")"
+    # fi
     # we use path syntax rather than "=PARTUUID=" syntax, as more reliable
-    KERNEL_CMD_LINE="root=${CMDLINE_ROOT} crypt_root=${CRYPTPATHMAP} "
-    if ((DISABLE_LVM==0)); then
-        KERNEL_CMD_LINE+="dolvm "
-    fi
-    KERNEL_CMD_LINE+="real_root=${CMDLINE_REAL_ROOT} rootfstype=${CMDLINE_ROOTFSTYPE} "
-    KERNEL_CMD_LINE+="real_init=${CMDLINE_REAL_INIT} "
+
+    ## This commented code was used to replicate the cmdline that dracut --print-cmdline
+    ## would make, but now that I think about it I think it would be easier to lets
+    ## 'dracut --host-only' handle that.
+    # local CRYPTUUID="$(partuuid_to_uuid ${CRYPTPARTUUID})"
+    # KERNEL_CMD_LINE="root=${CMDLINE_REAL_ROOT} rd.luks.uuid=luks-${CRYPTUUID} "
+    # if ((DISABLE_LVM==0)); then
+    #     KERNEL_CMD_LINE+="rd.lvm.lv=vg1/root rd.lvm.lv=vg1/swap "
+    # fi
+    # KERNEL_CMD_LINE+="rootfstype=${CMDLINE_ROOTFSTYPE} "
+    KERNEL_CMD_LINE="init=${CMDLINE_REAL_INIT} "
     if [ -n "${LUKSKEYFILE}" ]; then
-        KERNEL_CMD_LINE+="root_keydev=${KEYFILEPATHMAP} root_key=${LUKSKEYFILE} "
+        # Convert PARTUUID to UUID
+        local KEYFILEUUID="$(partuuid_to_uuid ${KEYFILEPARTUUID})"
+        KERNEL_CMD_LINE+="rd.luks.key=${LUKSKEYFILE}:UUID=${KEYFILEUUID} "
     fi
-    if ((DISABLE_HIBERNATION==0)); then
-        KERNEL_CMD_LINE+="real_resume=${CMDLINE_REAL_RESUME} "
-    fi
-    KERNEL_CMD_LINE+="keymap=${KEYMAP}"
+    # if ((DISABLE_HIBERNATION==0)); then
+    #     KERNEL_CMD_LINE+="resume=${CMDLINE_REAL_RESUME} "
+    # fi
+    KERNEL_CMD_LINE+="rc.vconsole.keymap=${KEYMAP}"
     if [ -n "${PLYMOUTHTHEME}" ]; then
         KERNEL_CMD_LINE+=" quiet splash"
         if [[ "${INITSYSTEM}" == "systemd" ]]; then
@@ -599,7 +611,7 @@ find_all_gpg_keyfile_partitions() {
     done
 }
 find_all_luks_partitions() {
-    # overwrites the variables LUKSUUIDS, LUKSPARTNAMES, LUKSDEVNAMES, 
+    # overwrites the variables LUKSUUIDS, LUKSPARTNAMES, LUKSDEVNAMES,
     # LUKSPARTNUMS and LUKSONUSBS
     LUKSUUIDS=(); LUKSPARTNAMES=(); LUKSPARTNAMES=(); LUKSDEVNAMES=()
     LUKSPARTNUMS=(); LUKSONUSBS=()
@@ -635,7 +647,7 @@ find_all_luks_partitions() {
 
 }
 find_all_efi_system_partitions() {
-    # overwrites the variables EFIUUIDS, EFIPARTNAMES, EFIDEVNAMES, 
+    # overwrites the variables EFIUUIDS, EFIPARTNAMES, EFIDEVNAMES,
     # EFIPARTNUMS and EFIONUSBS
     EFIUUIDS=(); EFIPARTNAMES=(); EFIPARTNAMES=(); EFIDEVNAMES=()
     EFIPARTNUMS=(); EFIONUSBS=()
@@ -717,8 +729,7 @@ find_all_efi_boot_entries() {
         # archive whether or not this is a windows bootloader entry
         # there can be >1 entry for the same UUID, so this acts like a
         # 'dirty' flag
-        if grep -i -q "Windows" <<<"${NEXTNAME}" || \
-	   grep -i -q "Microsoft" <<<"${NEXTPATH}"; then
+        if grep -i -q "Windows" <<<"${NEXTNAME}" || grep -i -q "Microsoft" <<<"${NEXTPATH}"; then
             HASWINBOOTLOADER["${NEXTUUID}"]="1"
         fi
         # store a lookup from boot ID (4 digit hex string) to index in these
@@ -796,7 +807,7 @@ interactively_set_buildkernel_config() {
         if ((DOEXIT==1 && DOSAVE==0 && CONFIGDIRTY==1)); then
             if ! test_yn_need_enter "Are you sure? Your changes will be lost. Proceed"; then
                 DOEXIT=0
-            fi 
+            fi
         fi
     done
     if ((DOSAVE==0)); then
@@ -1355,7 +1366,7 @@ make_key_file_location_expicit_if_necessary_and_wanted() {
             show "the value of EFIPARTUUID (the EFI system partition)."
             show "Now you have changed EFIPARTUUID, you must choose what to do"
             show "about the keyfile."
-            
+
             local -i DOEXIT=0
             declare -a KEYFILEMENU=("Keep keyfile in previous EFI system partition" \
                 "Move keyfile to new EFI system partition (retain implicit tracking)")
@@ -1373,7 +1384,7 @@ make_key_file_location_expicit_if_necessary_and_wanted() {
                             show "OK, the init scripts will look for the keyfile in the newly"
                             show "specified EFI system partition now (once you rebuild the kernel)"
                             show "You will asked whether to physically copy over the keyfile"
-                            show "when you select 'Save and exit' from the main menu" 
+                            show "when you select 'Save and exit' from the main menu"
                             DOEXIT=1
                             break ;;
                         *) warning "Please choose one of the menu options!"; break ;;
@@ -1408,7 +1419,7 @@ copy_file_from_partition_to_partition() {
     local FROMPARTNAME="$(readlink --canonicalize "${FROMEFIPARTPATH}")" # e.g. /dev/sda3
     local TOPARTNAME="$(readlink --canonicalize "${TOEFIPARTPATH}")" # e.g. /dev/sdb3
     local ALLMOUNTEDPARTS="$(df -P)"
-    local FROMMOUNT="$(grep "^${FROMPARTNAME}" <<<"${ALLMOUNTEDPARTS}" | perl -pe 's/^(\S+\s+){5}//')" 
+    local FROMMOUNT="$(grep "^${FROMPARTNAME}" <<<"${ALLMOUNTEDPARTS}" | perl -pe 's/^(\S+\s+){5}//')"
     local TOMOUNT="$(grep "^${TOPARTNAME}" <<<"${ALLMOUNTEDPARTS}" | perl -pe 's/^(\S+\s+){5}//')"
     if [ -n "${FROMMOUNT}" ]; then
         FROMPARTMOUNTEDONENTRY=1
@@ -1441,7 +1452,7 @@ copy_file_from_partition_to_partition() {
         # ensure parent directories exist
         mkdir --parents --verbose "${TOMOUNT}${TODIR}"
     fi
-    
+
     cp ${COPYFLAGS} "${FROMMOUNT}${FROMPATH}" "${TOMOUNT}${TOPATH}" && \
         show "${ONSUCCESSTEXT}" || warning "${ONERRORTEXT}"
     sync
@@ -1572,7 +1583,7 @@ conform_efi_boot_order_if_possible() {
     fi
 }
 check_key_file_if_on_efi_system_partition () {
-    # We check for the presence of a key file ONLY if it is on the EFI system 
+    # We check for the presence of a key file ONLY if it is on the EFI system
     # partition, as this must be mounted on entry to this function
     if [ -n "${LUKSKEYFILE}" ]; then
         if [[ "${KEYFILEPARTUUID}" == "${EFIPARTUUID}" ]]; then
@@ -1592,7 +1603,7 @@ ensure_efi_partition_mounted() {
     MOUNTEDONENTRY=0
     if mount | grep -q " ${EFIROOTDIR} " > /dev/null; then
         # check it is the correct partition, otherwise unmount it (to stop bad
-        # things happening in the case where the user leaves an old partition 
+        # things happening in the case where the user leaves an old partition
         # mounted, changes the EFIPARTUUID in /etc/buildkernel.conf, then runs
         # buildkernel)
         local MOUNTEDPARTUUID="$(lsblk --noheadings --list --output="MOUNTPOINT,PARTUUID" | grep "^${EFIROOTDIR}[[:space:]]" | awk '{print $2;}')"
@@ -1786,7 +1797,7 @@ allow_user_to_modify_config_graphically() {
             make ${CONFIGTYPE}
         else
             show "OK, autoconforming configuration using make ${CONFIGUPDATETYPE} instead..."
-            make ${CONFIGUPDATETYPE}        
+            make ${CONFIGUPDATETYPE}
         fi
     else
         # non-interactive mode
@@ -1871,6 +1882,27 @@ rebuild_external_modules_if_necessary() {
         fi
     fi
 }
+create_initramfs_using_dracut() {
+    show "Creating initramfs (uncompressed)..."
+    # Use host-only to get the necessary commands for our setup.
+    DRACUT_OPTS="--host-only --force "
+    # Add crypt-gpg if using a luks-key.gpg file.
+    if [ -n "${LUKSKEYFILE}" ]; then
+        DRACUT_OPTS+="--add crypt-gpg "
+    fi
+    if ((DISABLE_HIBERNATION==1)); then
+        DRACUT_OPTS+="--omit resume "
+    fi
+    if [ -z "${PLYMOUTHTHEME}" ]; then
+        DRACUT_OPTS+="--omit plymouth "
+    fi
+    DRACUT_OPTS+="--no-compress"
+
+    extract_kernel_release_name
+    dracut ${DRACUT_OPTS} --kver $(echo $NEWVERSION | sed "s/linux-//")
+    INITRAMFSNAME="${INITRAMFSDRACUT}"
+    cp ${VERBOSITYFLAG} "${BOOTDIR}/${INITRAMFSNAME}" "${UNCOMPRESSEDINITRAMFS}"
+}
 create_initramfs_using_genkernel() {
     show "Creating initramfs (uncompressed)..."
     # this is a partial use of genkernel, we don't use it to build the kernel
@@ -1900,6 +1932,17 @@ create_initramfs_using_genkernel() {
     # (e.g. due to 'SCM dirty suffix' having been added (a '+' sign))
     extract_kernel_release_name
     cp ${VERBOSITYFLAG} "${BOOTDIR}/${INITRAMFSNAME}" "${UNCOMPRESSEDINITRAMFS}"
+}
+unpack_initramfs_dracut() {
+    show "Unpacking initramfs cpio archive to ${INITRAMFSDIR}..."
+    if [ ! -d "${INITRAMFSDIR}" ]; then
+        mkdir "${INITRAMFSDIR}"
+    else
+        rm ${VERBOSITYFLAG} -rf "${INITRAMFSDIR}"/* # wipe any old data
+    fi
+    # dracut puts the CPU microcode in a seperate cpio image that is at the beginning
+    # of the actual initramfs. We use the builtin skipcpio program to get to it.
+    (cd "${INITRAMFSDIR}"; /usr/lib/dracut/skipcpio ${UNCOMPRESSEDINITRAMFS} | cpio --extract)
 }
 unpack_initramfs() {
     show "Unpacking initramfs cpio archive to ${INITRAMFSDIR}..."
@@ -1986,7 +2029,7 @@ check_if_enough_disk_space_for_backups() {
     if [ -s "${FULLEFIBOOTDIR}/${EFIBOOTFILE}" ]; then
         OLDKERNSIZEKB="$(stat --format="%s" "${FULLEFIBOOTDIR}/${EFIBOOTFILE}")"
         OLDKERNSIZEKB=$((OLDKERNSIZEKB/1024))
-    fi 
+    fi
     if [ -s "${FULLEFIBOOTDIR}/${EFICONFIGFILE}" ]; then
         OLDCONFIGSIZEKB="$(stat --format="%s" "${FULLEFIBOOTDIR}/${EFICONFIGFILE}")"
         OLDCONFIGSIZEKB=$((OLDCONFIGSIZEKB/1024))
@@ -2072,7 +2115,7 @@ finalize_efi_partition_and_unmount_if_desired() {
     sync
     echo
     DOUNMOUNT=0
-    
+
     if ((ARG_UNMOUNTATEND==1)); then
         # this trumps everything else
         DOUNMOUNT=1
@@ -2160,7 +2203,7 @@ Options:
   -r, --adjustment=N    add integer N to the make niceness -20<=N<=19
                         (the default is 19; this runs make at the lowest
                         priority to avoid slowing the system too much)
-  -s, --stage-only      prepare kernel in /boot as usual, but do not copy 
+  -s, --stage-only      prepare kernel in /boot as usual, but do not copy
                         to system partition
   -u, --unmount-at-end  umount the EFI system partition on successful exit
   -v, --verbose         display more information, where possible
@@ -2324,7 +2367,7 @@ ask_whether_to_proceed
 
 check_gcc_config_and_reset_if_necessary
 if_option_unset "ARG_STAGEONLY" ensure_efi_partition_mounted
-if ((ARG_COPYFROMSTAGING==0)); then    
+if ((ARG_COPYFROMSTAGING==0)); then
     enter_build_directory
     update_config_if_necessary
     conform_config_file
@@ -2333,9 +2376,11 @@ if ((ARG_COPYFROMSTAGING==0)); then
     clean_kernel_tree_if_desired
     kernel_build_pass_1         # with empty initramfs
     rebuild_external_modules_if_necessary
-    create_initramfs_using_genkernel
-    unpack_initramfs
-    modify_initramfs            # make sure our static gpg is in there!
+    create_initramfs_using_dracut
+    # create_initramfs_using_genkernel
+    unpack_initramfs_dracut
+    # unpack_initramfs
+    # modify_initramfs            # make sure our static gpg is in there!
     repack_initramfs
     kernel_build_pass_2         # with real initramfs
     sign_kernel_if_possible     # if key/certificate available, for secure boot
