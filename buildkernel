@@ -192,10 +192,12 @@ cleanup_and_exit_with_code() {
     restore_efivarfs_mount_state
     exit $1
 }
+
 fn_exists() {
     declare -f -F "${1}" > /dev/null
     return $?
 }
+
 show() {
     local MESSAGE=${1:-""}
     local VERBLEVEL=${2:-${VERBOSITY}}
@@ -203,6 +205,7 @@ show() {
         echo -e "${SHOWPREFIX}${MESSAGE}${SHOWSUFFIX}"
     fi
 }
+
 alertshow() {
     local MESSAGE=${1:-""}
     local VERBLEVEL=${2:-${VERBOSITY}}
@@ -212,19 +215,24 @@ alertshow() {
         echo -e "${SHOWPREFIX}${MESSAGE}${SHOWSUFFIX}${ALERT_TEXT}"
     fi
 }
+
 warning() {
     echo -e "${YELLOW_TEXT}${PREFIXSTRING}${RESET_ATTS}${PROGNAME}: Warning: ${1}" >&2
 }
+
 die() {
     echo
     echo -e "${RED_TEXT}${PREFIXSTRING}${RESET_ATTS}${PROGNAME}: Error: ${1} - exiting" >&2
     cleanup_and_exit_with_code 1
 }
+
 trap_cleanup() {
     trap - SIGHUP SIGQUIT SIGINT SIGTERM SIGKILL EXIT
     die "Caught signal"
 }
+
 trap trap_cleanup SIGHUP SIGQUIT SIGINT SIGTERM SIGKILL EXIT
+
 test_yn() {
     echo -n -e "${SHOWPREFIX}${1} (y/n)? ${SHOWSUFFIX}${ALERT_TEXT}"
     read -r -n 1
@@ -235,6 +243,7 @@ test_yn() {
         return 1
     fi
 }
+
 test_yn_need_enter() {
     echo -n -e "${SHOWPREFIX}${1} (y/n)? ${SHOWSUFFIX}${ALERT_TEXT}"
     read -r
@@ -245,12 +254,14 @@ test_yn_need_enter() {
         return 1
     fi
 }
+
 continue_yn() {
     if ! test_yn "${1}"; then
         echo -e "${RED_TEXT}${PREFIXSTRING}${RESET_ATTS}Quitting" >&2
         cleanup_and_exit_with_code 1
     fi
 }
+
 suppress_colours() {
     RED_TEXT=""
     GREEN_TEXT=""
@@ -258,9 +269,11 @@ suppress_colours() {
     RESET_ATTS=""
     SHOWPREFIX="${PREFIXSTRING}"
 }
+
 suppress_alert() {
     ALERT_TEXT=""
 }
+
 suppress_colour_and_alert_if_output_not_to_a_terminal() {
     if [ ! -t 1 -o ! -t 2 ]; then
         # we are going to a non-terminal
@@ -268,17 +281,20 @@ suppress_colour_and_alert_if_output_not_to_a_terminal() {
         suppress_alert
     fi
 }
+
 check_file_exists() {
     if [ ! -f "${1}" ]; then
         die "File '${1}' does not exist"
     fi
 }
+
 read_portage_info_if_necessary() {
     if [ -z "${PORTAGEINFO}" ]; then
         show "Checking Portage configuration, please wait..."
         PORTAGEINFO="$(emerge --info)"
     fi
 }
+
 extract_kernel_release_name() {
     # extract the kernel release string, and setup the derived strings
     # NB we now check kernelrelease, not kernelversion; it is possible that
@@ -291,6 +307,7 @@ extract_kernel_release_name() {
     INITRAMFSDRACUT="$(echo $NEWVERSION | sed "s/linux/initramfs/").img"
     VMLINUZNAME="$(echo $NEWVERSION | sed "s/linux/vmlinuz/")"
 }
+
 check_gcc_config_and_reset_if_necessary() {
     # check if gcc-config exists with an error - if it does, then
     # attempt to set one based on the current gcc version number
@@ -327,6 +344,7 @@ check_gcc_config_and_reset_if_necessary() {
         fi
     fi
 }
+
 mount_and_remember() {
     local DEVPATH="${1}"
     local MOUNTPOINT="${2}"
@@ -344,6 +362,7 @@ mount_and_remember() {
         ALLMOUNTS["${MOUNTPOINT}"]="${DEVPATH}"
     fi
 }
+
 umount_and_forget() {
     local MOUNTPOINT="${1}"
     if [[ "${ALLMOUNTS[${MOUNTPOINT}]+_}" ]]; then
@@ -354,6 +373,7 @@ umount_and_forget() {
         warning "Attempt to unmount '${MOUNTPOINT}', but not mounted"
     fi
 }
+
 umount_all_remembered_mountpoints() {
     local M ALLREMEMBEREDMOUNTS="${!ALLMOUNTS[@]}"
     for M in ${ALLREMEMBEREDMOUNTS}; do
@@ -363,6 +383,7 @@ umount_all_remembered_mountpoints() {
         fi
     done
 }
+
 ensure_efivarfs_rw_if_present() {
     if ((USINGEFI==1 && ONENTRYROEFIVARFS==1)); then
         warning "Temporarily remounting efivarfs read-write"
@@ -370,6 +391,7 @@ ensure_efivarfs_rw_if_present() {
         EFIVARFSREMOUNTEDRW=1
     fi
 }
+
 restore_efivarfs_mount_state() {
     if ((USINGEFI==1 && ONENTRYROEFIVARFS==1 && EFIVARFSREMOUNTEDRW==1)); then
         warning "Remounting efivarfs read-only"
@@ -378,9 +400,11 @@ restore_efivarfs_mount_state() {
         fi
     fi
 }
+
 check_is_luks_volume() {
     cryptsetup isLuks "${1}" || die "Path '${1}' is not a LUKS volume"
 }
+
 partuuid_is_on_usb_device() {
     local CANONPART="$(readlink --canonicalize "${PARTUUIDDEVDIR}/${1,,}")"
     if [[ "${ISUSBPART[${CANONPART}]-0}" == "1" ]]; then
@@ -388,20 +412,24 @@ partuuid_is_on_usb_device() {
     fi
     return 1
 }
+
 check_partuuid_exists() {
     if [ ! -h "${PARTUUIDDEVDIR}/${1}" ]; then
         die "Partition with UUID '${1}' does not exist"
     fi
 }
+
 # Returns the UUID of the given PARTUUID
 partuuid_to_uuid() {
     check_partuuid_exists ${1}
     blkid "${PARTUUIDDEVDIR}/${1}" -o value -s UUID
 }
+
 # Returns the options for mounting root
 get_rootflags() {
     findmnt -e -v -n -o OPTIONS --target /
 }
+
 source_etc_conf_file() {
     # get the variables the user must set, and any overrides
     if [ ! -s "${CONFFILE}" ]; then
@@ -456,6 +484,7 @@ source_etc_conf_file() {
         die "Cannot proceed; KERNEL_SIGNING_KEY is configured, but KERNEL_SIGNING_CERT is not."
     fi
 }
+
 setup_final_variables() {
     # post-processing once buildkernel.conf loaded
     # critical that EFIPARTUUID and CRYPTPARTUUID are defined...
@@ -554,6 +583,7 @@ setup_final_variables() {
         USINGMODULES=1
     fi
 }
+
 check_if_booted_under_efi() {
     if [ -d "/sys/firmware/efi" ]; then
         USINGEFI=1
@@ -567,6 +597,7 @@ check_if_booted_under_efi() {
         USINGEFI=0
     fi
 }
+
 find_all_usb_partitions() {
     # overwrites ISUSBPART
     local U ALLU="${!ISUSBPART[@]}"
@@ -582,6 +613,7 @@ find_all_usb_partitions() {
         fi
     done
 }
+
 find_all_gpg_keyfile_partitions() {
     # overwrites the variables GPGUUIDS, GPGPARTNAMES, GPGDEVNAMES and
     # GPGPARTNUMS
@@ -608,6 +640,7 @@ find_all_gpg_keyfile_partitions() {
         fi
     done
 }
+
 find_all_luks_partitions() {
     # overwrites the variables LUKSUUIDS, LUKSPARTNAMES, LUKSDEVNAMES,
     # LUKSPARTNUMS and LUKSONUSBS
@@ -644,6 +677,7 @@ find_all_luks_partitions() {
     done
 
 }
+
 find_all_efi_system_partitions() {
     # overwrites the variables EFIUUIDS, EFIPARTNAMES, EFIDEVNAMES,
     # EFIPARTNUMS and EFIONUSBS
@@ -679,6 +713,7 @@ find_all_efi_system_partitions() {
         fi
     done
 }
+
 find_all_efi_boot_entries() {
     # overwrites the variables EBOOTIDS EBOOTNAMES EBOOTPATHS EBOOTUUIDS
     # and EBOOTISACTIVES, EBOOTORDER
@@ -739,6 +774,7 @@ find_all_efi_boot_entries() {
     EBOOTORDER=($(efibootmgr | grep '^BootOrder' | sed 's/BootOrder: //g;s/,/ /g'))
     EFIBOOTENTRIESSEARCHED=1
 }
+
 archive_current_config_variables() {
     local NEXTVAR
     for NEXTVAR in "${PROCVARS[@]}"; do
@@ -749,6 +785,7 @@ archive_current_config_variables() {
         fi
     done
 }
+
 warn_if_buildkernel_config_incomplete() {
     declare -i WILLRUN=1
     if [[ ! -v EFIPARTUUID ]]; then
@@ -770,6 +807,7 @@ warn_if_buildkernel_config_incomplete() {
         warning "${PROGNAME} cannot create a kernel until you fix this"
     fi
 }
+
 interactively_set_buildkernel_config() {
     find_all_gpg_keyfile_partitions
     find_all_luks_partitions
@@ -828,6 +866,7 @@ interactively_set_buildkernel_config() {
         warn_if_buildkernel_config_incomplete
     fi
 }
+
 save_buildkernel_config() {
     local NEXTVAR NEXTDEFAULTVAR
     # ensure any existing definitions are commented out
@@ -881,6 +920,7 @@ save_buildkernel_config() {
         umount_and_forget "${EFIROOTDIR}"
     fi
 }
+
 set_efi_system_partition() {
     declare -i DOEXIT=0 NUMEFIPARTS="${#EFIUUIDS[@]}"
     local NUMREG='^[0-9]+$'
@@ -915,6 +955,7 @@ set_efi_system_partition() {
         fi
     done
 }
+
 set_luks_root_partition() {
     declare -i DOEXIT=0 NUMLUKSPARTS="${#LUKSUUIDS[@]}"
     local NUMREG='^[0-9]+$'
@@ -947,6 +988,7 @@ set_luks_root_partition() {
         fi
     done
 }
+
 show_current_key_config_status() {
     # main things we need are: EFIPARTUUID, CRYPTPARTUUID, KEYFILEPARTUUID
     # LUKSKEYFILE, EFIBOOTDIR, EFIBOOTFILE, PLYMOUTHTHEME, KEYMAP and INITSYSTEM
@@ -977,6 +1019,7 @@ show_current_key_config_status() {
     fi
     printf "\n"
 }
+
 show_gpg_keyfile_partitions() {
     local LASTITEM=${1:-""}
     declare -i I=0 NUMGPGPARTS="${#GPGUUIDS[@]}"
@@ -998,6 +1041,7 @@ show_gpg_keyfile_partitions() {
         printf "%2d) %s\n" $((NUMGPGPARTS+1)) "${LASTITEM}"
     fi
 }
+
 show_luks_partitions() {
     local LASTITEM=${1:-""}
     declare -i I=0 NUMLUKSPARTS="${#LUKSUUIDS[@]}"
@@ -1023,6 +1067,7 @@ show_luks_partitions() {
         printf "%2d) %s\n" $((NUMLUKSPARTS+1)) "${LASTITEM}"
     fi
 }
+
 show_efi_system_partitions() {
     local LASTITEM=${1:-""}
     declare -i I=0 NUMEFIPARTS="${#EFIUUIDS[@]}"
@@ -1055,6 +1100,7 @@ show_efi_system_partitions() {
         printf "%2d) %s\n" $((NUMEFIPARTS+1)) "${LASTITEM}"
     fi
 }
+
 show_luks_key_status() {
     if [ -n "${LUKSKEYFILE}" ]; then
         show "Using a GPG-encrypted keyfile for LUKS:"
@@ -1067,11 +1113,13 @@ show_luks_key_status() {
         show "Using no keyfile, but relying on fallback passphrase for LUKS"
     fi
 }
+
 show_efi_boot_file_status() {
     show "EFI boot file path: ${EFIBOOTDIR}/${EFIBOOTFILE}"
     show " (under EFI system partition mountpoint)"
     warn_if_efi_boot_file_clashes_with_windows_bootloader
 }
+
 show_boot_splash_status() {
     if [ -n "${PLYMOUTHTHEME}" ]; then
         show "Using Plymouth on boot, with theme '${PLYMOUTHTHEME}'"
@@ -1083,6 +1131,7 @@ show_boot_splash_status() {
         show "Using textual boot (no Plymouth)"
     fi
 }
+
 show_init_system_status() {
     if [[ "${INITSYSTEM}" == "systemd" ]]; then
         show "Targeting systemd init"
@@ -1090,6 +1139,7 @@ show_init_system_status() {
         show "Targeting OpenRC init"
     fi
 }
+
 set_luks_key_options() {
     local -i DOEXIT=0
     declare -a LUKSKEYMENU=("Use GPG-encrypted keyfile on EFI system partition" \
@@ -1131,6 +1181,7 @@ set_luks_key_options() {
         done
     done
 }
+
 set_luks_keyfile_partition() {
     declare -i DOEXIT=0 NUMGPGPARTS="${#GPGUUIDS[@]}"
     local NUMREG='^[0-9]+$'
@@ -1181,6 +1232,7 @@ set_luks_keyfile_partition() {
         fi
     done
 }
+
 set_boot_time_keymap() {
     declare -i DOEXIT=0
     declare -a KEYMAPLIST=("azerty" "be" "bg" "br-a" "br-l" "by" "cf" "croat" \
@@ -1210,6 +1262,7 @@ set_boot_time_keymap() {
         done
     done
 }
+
 set_efi_boot_file_path() {
     # we only present a simplified choice here
     local -i DOEXIT=0
@@ -1259,6 +1312,7 @@ set_efi_boot_file_path() {
         done
     done
 }
+
 set_boot_splash_options() {
     # we only present a simplified choice here
     local -i DOEXIT=0
@@ -1295,6 +1349,7 @@ set_boot_splash_options() {
         done
     done
 }
+
 set_init_system() {
     # currently only two option are supported
     local -i DOEXIT=0
@@ -1331,6 +1386,7 @@ set_init_system() {
         done
     done
 }
+
 warn_if_efi_boot_file_clashes_with_windows_bootloader() {
     # we check if our (slash-modified) path + PARTUUID matches any in the
     # existing EFI boot list, which are flagged as being 'windows' boots
@@ -1352,6 +1408,7 @@ warn_if_efi_boot_file_clashes_with_windows_bootloader() {
         warning "(as otherwise, the Windows bootloader may be overwritten)"
     fi
 }
+
 make_key_file_location_expicit_if_necessary_and_wanted() {
     # whenever the EFIPARTUUID is changed, it is possible that an (implicitly
     # defined) KEYFILEPARTUUID should then become explicit - so do this if
@@ -1392,6 +1449,7 @@ make_key_file_location_expicit_if_necessary_and_wanted() {
         fi
     fi
 }
+
 copy_file_from_partition_to_partition() {
     # used to copy files from one partition to another
     # prints a warning only if not successful (you can specify text of this)
@@ -1464,6 +1522,7 @@ copy_file_from_partition_to_partition() {
         rmdir "${FROMMOUNT}"
     fi
 }
+
 ask_whether_to_proceed() {
     show "Secure-bootable EFI kernel build script"
     check_is_luks_volume "${CRYPTPATHMAP}"
@@ -1480,6 +1539,7 @@ ask_whether_to_proceed() {
         continue_yn "Do you want to proceed"
     fi
 }
+
 conform_efi_boot_order_if_possible() {
     # checks if we have been booted under UEFI, and, if so, whether or not
     # the EFIBOOTNAME is present, accurate, active, and at the top of the boot
@@ -1580,6 +1640,7 @@ conform_efi_boot_order_if_possible() {
         show "Appropriate entry already exists at the top of EFI boot list"
     fi
 }
+
 check_key_file_if_on_efi_system_partition () {
     # We check for the presence of a key file ONLY if it is on the EFI system
     # partition, as this must be mounted on entry to this function
@@ -1597,6 +1658,7 @@ check_key_file_if_on_efi_system_partition () {
         fi
     fi
 }
+
 ensure_efi_partition_mounted() {
     MOUNTEDONENTRY=0
     if mount | grep -q " ${EFIROOTDIR} " > /dev/null; then
@@ -1639,6 +1701,7 @@ ensure_efi_partition_mounted() {
     fi
     check_key_file_if_on_efi_system_partition
 }
+
 setup_build_directory() {
     if [ -z "${LINUXBUILDDIR+x}" ]; then
         LINUXBUILDDIR="${LINUXDIR}"
@@ -1662,10 +1725,12 @@ setup_build_directory() {
         fi
     fi
 }
+
 enter_build_directory() {
     show "Proceeding - entering ${LINUXBUILDDIR}..."
     cd "${LINUXBUILDDIR}"
 }
+
 copy_config_from_proc_if_necessary () {
     # LINUXBUILDDIR must be defined and non blank on entry
     TARGETCONFIG="${LINUXBUILDDIR}/.config"
@@ -1680,6 +1745,7 @@ copy_config_from_proc_if_necessary () {
         zcat "${CURRENTCONFIG}" > "${TARGETCONFIG}"
     fi
 }
+
 update_config_if_necessary() {
     # LINUXBUILDDIR must be defined and non blank on entry
     if ((ARG_ASK==1)); then
@@ -1694,6 +1760,7 @@ update_config_if_necessary() {
         (cd "${LINUXBUILDDIR}" && make "${SILENTUPDATETYPE}")
     fi
 }
+
 conform_config_file() {
     if [[ "${INITSYSTEM}" == "openrc" ]]; then
         show "Although we are targeting OpenRC init, systemd kernel flags will"
@@ -1781,6 +1848,7 @@ conform_config_file() {
         (user_conform_config_file)
     fi
 }
+
 allow_user_to_modify_config_graphically() {
     # make menuconfig (and friends) will sort out any dependencies resulting
     # from calling conform_config_file(), before the UI is presented
@@ -1803,6 +1871,7 @@ allow_user_to_modify_config_graphically() {
         make ${SILENTUPDATETYPE}
     fi
 }
+
 set_kernel_config() {
     # flag as $1, value to set as $2, config must exist at "./.config"
     local TGT="CONFIG_${1}"
@@ -1813,6 +1882,7 @@ set_kernel_config() {
         echo "${TGT}=${2}" >> .config
     fi
 }
+
 set_kernel_config_list_to_y() {
     # force all in list to 'y'
     local x
@@ -1820,11 +1890,13 @@ set_kernel_config_list_to_y() {
         set_kernel_config "${x}" "y"
     done
 }
+
 unset_kernel_config() {
     # unsets flag with the value of $1, config must exist at "./.config"
     local TGT="CONFIG_${1}"
-    sed -i "s/^${TGT}=.*/# ${TGT} is not set/" .config
+    sed -i "s/^${TGT}=.*/\# ${TGT} is not set/" .config
 }
+
 clean_kernel_tree_if_desired() {
     declare -i DOCLEAN="${ARG_CLEAN}"
     if ((DOCLEAN==0 && ARG_ASK==1)); then
@@ -1837,6 +1909,7 @@ clean_kernel_tree_if_desired() {
         ${MAKE} clean # not mrproper - so our .config file will be left alone
     fi
 }
+
 kernel_build_pass_1() {
     # touch ramdisk decompressed image file first, so that the
     # kernel has something to include for the first run
@@ -1860,6 +1933,7 @@ kernel_build_pass_1() {
     show "(where supported; in-kernel firmware was dropped in 4.14)"
     ${MAKE} firmware_install || true
 }
+
 rebuild_external_modules_if_necessary() {
     if ((ARG_REBUILD_EXTERNAL_MODULES==1)); then
         show "Creating any necessary external modules (e.g., VirtualBox)..."
@@ -1880,6 +1954,7 @@ rebuild_external_modules_if_necessary() {
         fi
     fi
 }
+
 create_initramfs_using_dracut() {
     show "Creating initramfs (uncompressed)..."
     # Use host-only to get the necessary commands for our setup.
@@ -1904,6 +1979,7 @@ create_initramfs_using_dracut() {
     INITRAMFSNAME="${INITRAMFSDRACUT}"
     cp ${VERBOSITYFLAG} "${BOOTDIR}/${INITRAMFSNAME}" "${UNCOMPRESSEDINITRAMFS}"
 }
+
 unpack_initramfs_dracut() {
     show "Unpacking initramfs cpio archive to ${INITRAMFSDIR}..."
     if [ ! -d "${INITRAMFSDIR}" ]; then
@@ -1915,6 +1991,7 @@ unpack_initramfs_dracut() {
     # of the actual initramfs. We use the builtin skipcpio program to get to it.
     (cd "${INITRAMFSDIR}"; /usr/lib/dracut/skipcpio ${UNCOMPRESSEDINITRAMFS} | cpio --extract)
 }
+
 modify_initramfs() {
     # you can define user_modify_initramfs in your buildkernel.conf file...
     if fn_exists user_modify_initramfs; then
@@ -1922,12 +1999,14 @@ modify_initramfs() {
         (user_modify_initramfs)
     fi
 }
+
 repack_initramfs() {
     show "Deleting old initramfs cpio archive, and repacking..."
     rm ${VERBOSITYFLAG} -f "${UNCOMPRESSEDINITRAMFS}" "${BOOTDIR}/${INITRAMFSNAME}"
     (cd "${INITRAMFSDIR}"; find . | cpio -H newc --create > "${UNCOMPRESSEDINITRAMFS}")
     cp ${VERBOSITYFLAG} "${UNCOMPRESSEDINITRAMFS}" "${BOOTDIR}/${INITRAMFSNAME}"
 }
+
 kernel_build_pass_2() {
     show "Building ${NEWVERSION} (pass 2, to include real initramfs)..."
     ${MAKE} -j ${NUMCPUSPLUSONE}
@@ -1935,6 +2014,7 @@ kernel_build_pass_2() {
     ${MAKE} install
     # no need to re-install modules or firmware - only the initramfs has changed
 }
+
 sign_kernel_if_possible() {
     if [ -s "${BOOTDIR}/${VMLINUZNAME}${SIGNEDSUFFIX}" ]; then
         show "Removing old signed kernel ${BOOTDIR}/${VMLINUZNAME}${SIGNEDSUFFIX}"
@@ -1950,11 +2030,13 @@ sign_kernel_if_possible() {
         warning "This kernel will only boot in unsecured EFI mode!"
     fi
 }
+
 purge_old_backup_kernel_and_config_if_present() {
     local FILEPREFIX=${1:-""}
     rm -rf "${FULLEFIBOOTDIR}/${FILEPREFIX}${EFIBOOTFILE}${OLDSUFFIX}"
     rm -rf "${FULLEFIBOOTDIR}/${FILEPREFIX}${EFICONFIGFILE}${OLDSUFFIX}"
 }
+
 check_if_enough_disk_space_for_backups() {
     # do the best we can - if using an existing (Windows) EFI system partition
     # (and an unshrunk kernel) things may be tight
@@ -2014,6 +2096,7 @@ check_if_enough_disk_space_for_backups() {
         BACKUPOLDKERNEL=0
     fi
 }
+
 backup_prior_efi_kernel_if_present() {
     local FILEPREFIX=${1:-""}
     # first, make sure the directory exists!
@@ -2026,6 +2109,7 @@ backup_prior_efi_kernel_if_present() {
         fi
     fi
 }
+
 backup_prior_config_if_present() {
     local FILEPREFIX=${1:-""}
     if ((BACKUPOLDKERNEL==1)); then
@@ -2035,6 +2119,7 @@ backup_prior_config_if_present() {
         fi
     fi
 }
+
 copy_new_efi_kernel_to_efi_partition() {
     show "Copying EFI-bootable kernel $NEWVERSION to EFI directory..."
     if [ -s "${BOOTDIR}/${VMLINUZNAME}${SIGNEDSUFFIX}" ]; then
@@ -2043,10 +2128,12 @@ copy_new_efi_kernel_to_efi_partition() {
         cp ${VERBOSITYFLAG} "${BOOTDIR}/${VMLINUZNAME}" "${FULLEFIBOOTDIR}/${EFIBOOTFILE}"
     fi
 }
+
 copy_new_config_to_efi_partition() {
     show "Copying .config file to EFI directory (for reference only)..."
     cp ${VERBOSITYFLAG} "${TARGETCONFIG}" "${FULLEFIBOOTDIR}/${EFICONFIGFILE}"
 }
+
 finalize_efi_partition_and_unmount_if_desired() {
     show "Syncing filesystem..."
     sync
@@ -2082,6 +2169,7 @@ finalize_efi_partition_and_unmount_if_desired() {
         fi
     fi
 }
+
 display_final_status() {
     show "All done!"
     if ((ARG_STAGEONLY==1)); then
@@ -2089,6 +2177,7 @@ display_final_status() {
         show "   to the EFI system partition)"
     fi
 }
+
 if_option_has_value() {
     # execute third argument as function, if the variable *named by* the second
     # argument has the value passed in the first argument
@@ -2105,16 +2194,19 @@ if_option_has_value() {
         "${TORUN}" "${@}"
     fi
 }
+
 if_option_set() {
     # execute second argument as function if variable named by the first
     # argument has value 1
     if_option_has_value 1 "${@}"
 }
+
 if_option_unset() {
     # execute second argument as function if variable named by the first
     # argument has value 0
     if_option_has_value 0 "${@}"
 }
+
 print_usage() {
     cat << EOF
 Usage: ${PROGNAME} [options]
@@ -2148,15 +2240,18 @@ Options:
   -V, --version         display the version number of ${PROGNAME} and exit
 EOF
 }
+
 print_help() {
     cat << EOF
 ${PROGNAME} - build a secure boot kernel and save to EFI system partition
 EOF
     print_usage
 }
+
 print_version() {
     printf "%s\n" "${VERSION}"
 }
+
 display_usage_message_and_bail_out() {
     if [ ! -z "${1+x}" ]; then
         printf "%s: %s\n" "${PROGNAME}" "${1}" >&2
@@ -2164,6 +2259,7 @@ display_usage_message_and_bail_out() {
     print_usage >&2
     cleanup_and_exit_with_code 1
 }
+
 internal_consistency_option_checks() {
     # following not exhaustive, just some more obvious snafus
     if ((ARG_STAGEONLY==1 && ARG_COPYFROMSTAGING==1)); then
@@ -2182,6 +2278,7 @@ internal_consistency_option_checks() {
             display_usage_message_and_bail_out "must have -20 <= make niceness adjustment <= 19"
     fi
 }
+
 snapshot_kernel_on_efi_partition() {
     local TIMESTAMP_PREFIX=$(date +"%Y-%m-%d-%H-%M-%S-")
     ensure_efi_partition_mounted
@@ -2189,13 +2286,14 @@ snapshot_kernel_on_efi_partition() {
     backup_prior_config_if_present "${TIMESTAMP_PREFIX}"
     finalize_efi_partition_and_unmount_if_desired
 }
+
 exit_zero_if_new_kernel_available() {
     # simple test - is the currently running kernel the same as the one
     # present in the staging area?
     # exit with code 0 if it is not (i.e., a new kernel IS available), or 1
     # if it is
     if [[ "${CURRENTVERSION}" != "${NEWVERSION}" && \
-        (-s "${BOOTDIR}/${VMLINUZNAME}" || -s "${BOOTDIR}/${VMLINUZNAME}${SIGNEDSUFFIX}")]]; then
+        ( -s "${BOOTDIR}/${VMLINUZNAME}" || -s "${BOOTDIR}/${VMLINUZNAME}${SIGNEDSUFFIX}") ]]; then
         cleanup_and_exit_with_code 0
     else
         # up to date, or no new kernel available, so th
