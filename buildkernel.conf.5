@@ -104,7 +104,7 @@ be unchanged.
 .TP
 .BR ADDITIONALKERNELCMDS
 If you wish to pass any additional command line parameters in the kernel boot
-line (either for attention of the kernel itself, or for \fBgenkernel\fR(8)'s
+line (either for attention of the kernel itself, or for \fBdracut\fR(8)'s
 \fBinit\fR(8) script), you can specify them here. All of the important values
 for booting will be set by \fBbuildkernel\fR, so this defaults to an empty
 string if not set.
@@ -120,9 +120,9 @@ Specify extra options for \fBdracut\fR here.
 .BR KEYMAP
 This variable specifies the keymap to be used in early userspace (that is, when
 the initramfs-based system is prompting you for a passphrase to unlock the
-\fBgpg\fR(1)-encrypted keyfile). It is \fInot\fR a standard locale keymap string,
-but rather one recognized by the \fI/usr/share/genkernel/defaults/initrd.d/00-keymaps.sh\fR
-script. If not specified here, \fBKEYMAP="us"\fR will be assumed.
+\fBgpg\fR(1)-encrypted keyfile). This should be the same as the one set in
+\fB/etc/vconsole.conf\fR or \fB/etc/conf.d/keymaps\fR. If it is not set
+KEYMAP="us" will be assumed.
 .br
 .TP
 .BR PLYMOUTHTHEME
@@ -264,7 +264,6 @@ sakaki \(em send bug reports or comments to <sakaki@deciban.com>
 .BR gpg (1),
 .BR systemd (1),
 .BR cryptsetup (8),
-.BR genkernel (8),
 .BR init (8),
 .BR lvm (8),
 .BR plymouth (8),

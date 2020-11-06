@@ -2,7 +2,7 @@
 
 A tool to build a secure-boot EFI stub kernel, and save it to the EFI system partition. (Uses dracut instead of genkernel-next)
 
-> Since I use this script from Sakaki pretty regularly I decided to fork it and make it use dracut instead of genkernel-next which was something I was thinking about doing when genkernel-next got pulled from the official Gentoo repos.
+> Since I used the original script from Sakaki pretty regularly I decided to fork it and make it use dracut instead of genkernel-next which was something I was thinking about doing when genkernel-next got pulled from the official Gentoo repos.
 
 ### Below is the original EOL notice from sakaki's repo.
 
@@ -10,13 +10,13 @@ A tool to build a secure-boot EFI stub kernel, and save it to the EFI system par
 
 ## Description
 
-**buildkernel** is a script that builds a Gentoo Linux EFI stub kernel which is suitable for booting from a USB key using UEFI (no additional bootloader required). It makes use of the initramfs creation tools (and early userspace **init**(8) script) provided by **genkernel**(8).
+**buildkernel** is a script that builds a Gentoo Linux EFI stub kernel which is suitable for booting from a USB key using UEFI (no additional bootloader required). It makes use of the initramfs creation tools (and early userspace **init**(8) script) provided by **dracut**(8).
 
 Specifically, the assumed use-case for buildkernel is where you are creating a kernel for use in a dual-factor-authenticated LVM-over-LUKS system, booting from an external USB key, with secure boot enabled (using UEFI), where you may (optionally) wish to use the **plymouth**(8) splash manager, and where the target (final) init system is **systemd**(1).
 
 > Note: as of version 1.0.11, **OpenRC**(8) init is also supported.
 
-To facilitate this, **buildkernel** will create a statically linked version of **gpg**(1) — one which furthermore does not require pinentry — and include this in the initramfs.
+To facilitate this, **buildkernel** will create an initramfs via **dracut** which installs gpg into the initramfs via dracut's **crypt-gpg** module.
 
 It will also automatically set the necessary kernel configuration parameters, including the command line, sign the resulting kernel if possible, then update the EFI boot list if required.
 
@@ -28,7 +28,4 @@ Although **buildkernel** is targetted primarily at the use-case where the EFI sy
 
 ## Installation
 
-**buildkernel** is best installed (on Gentoo) via its ebuild, available as part of the **sakaki-tools** [overlay](https://github.com/sakaki-/sakaki-tools).
-Full instructions are provided as part of the [**Sakaki's EFI Install Guide**](https://wiki.gentoo.org/wiki/Sakaki's_EFI_Install_Guide) tutorial, on the Gentoo wiki.
-
-In particular, see [this section](https://wiki.gentoo.org/wiki/Sakaki's_EFI_Install_Guide/Configuring_and_Building_the_Kernel#What_the_buildkernel_Script_Does_.28Background_Reading.29) for a detailed description of what **buildkernel** does, and why.
+This fork can be installed via the **buildkernel-dracut** ebuild from [thegreatmcpain-overlay](https://gitlab.com/TheGreatMcPain/thegreatmcpain-overlay)
