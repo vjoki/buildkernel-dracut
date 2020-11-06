@@ -303,8 +303,7 @@ extract_kernel_release_name() {
     # sign appended)
     # LINUXBUILDDIR must be defined and non-blank on entry
     NEWVERSION="linux-$(cd "${LINUXBUILDDIR}" && make -s kernelrelease)"
-    INITRAMFSNAME="$(echo $NEWVERSION | sed "s/linux/initramfs-genkernel-x86_64/")"
-    INITRAMFSDRACUT="$(echo $NEWVERSION | sed "s/linux/initramfs/").img"
+    INITRAMFSNAME="$(echo $NEWVERSION | sed "s/linux/initramfs/").img"
     VMLINUZNAME="$(echo $NEWVERSION | sed "s/linux/vmlinuz/")"
 }
 
@@ -1877,7 +1876,7 @@ set_kernel_config() {
     local TGT="CONFIG_${1}"
     local REP="${2//\//\\/}"
     if grep -q "^${TGT}[^_]" .config; then
-        sed -i "s/^\(${TGT}=.*\|# ${TGT} is not set\)/${TGT}=${REP}/" .config
+        sed -i "s/^\(${TGT}=.*\|\# ${TGT} is not set\)/${TGT}=${REP}/" .config
     else
         echo "${TGT}=${2}" >> .config
     fi
@@ -1976,7 +1975,6 @@ create_initramfs_using_dracut() {
 
     extract_kernel_release_name
     dracut ${DRACUT_OPTS} --kver $(echo $NEWVERSION | sed "s/linux-//")
-    INITRAMFSNAME="${INITRAMFSDRACUT}"
     cp ${VERBOSITYFLAG} "${BOOTDIR}/${INITRAMFSNAME}" "${UNCOMPRESSEDINITRAMFS}"
 }
 
