@@ -2428,9 +2428,11 @@ if ((ARG_COPYFROMSTAGING==0)); then
     kernel_build_pass_1         # with empty initramfs
     rebuild_external_modules_if_necessary
     create_initramfs_using_dracut
-    unpack_initramfs_dracut
-    modify_initramfs
-    repack_initramfs
+    if fn_exists user_modify_initramfs; then
+        unpack_initramfs_dracut
+        modify_initramfs
+        repack_initramfs
+    fi
     kernel_build_pass_2         # with real initramfs
     sign_kernel_if_possible     # if key/certificate available, for secure boot
 fi
