@@ -98,6 +98,7 @@ if [[ -v TERM && -n "${TERM}" && "${TERM}" != "dumb" ]]; then
 fi
 # used in subshells
 UNCOMPRESSEDINITRAMFS="${BOOTDIR}/initramfs.cpio"
+EARLYINITRAMFSDIR="${BOOTDIR}/early_cpio"
 INITRAMFSDIR="${BOOTDIR}/initramfs"
 VERBOSITY=1
 PREFIXSTRING="* "
@@ -2004,11 +2005,25 @@ unpack_initramfs_dracut() {
     else
         rm ${VERBOSITYFLAG} -rf "${INITRAMFSDIR:?}"/* # wipe any old data
     fi
-    # FIXME: Early cpio is added when using --early-microcode flag. This just removes
-    # the early cpio or fails if none, as it's not checked for and readded when repacking.
+
+    # When --early-microcode flag is used
     # dracut puts the CPU microcode in a seperate cpio image that is at the beginning
-    # of the actual initramfs. We use the builtin skipcpio program to get to it.
-    (cd "${INITRAMFSDIR}"; /usr/lib/dracut/skipcpio "${UNCOMPRESSEDINITRAMFS}" | cpio --extract)
+    # of the actual initramfs. We use the builtin skipcpio program to get to it,
+    # after confirming it's existence.
+    local is_early
+    is_early="$(cpio --extract --verbose --quiet --to-stdout -- 'early_cpio' < "${UNCOMPRESSEDINITRAMFS}" 2> /dev/null)"
+    if [ -n "$is_early" ]; then
+        if [ ! -d "${EARLYINITRAMFSDIR}" ]; then
+            mkdir "${EARLYINITRAMFSDIR}"
+        else
+            rm ${VERBOSITYFLAG} -rf "${EARLYINITRAMFSDIR:?}"/* # wipe any old data
+        fi
+        (cd "${EARLYINITRAMFSDIR}"; cpio --extract --file="${UNCOMPRESSEDINITRAMFS}")
+
+        (cd "${INITRAMFSDIR}"; /usr/lib/dracut/skipcpio "${UNCOMPRESSEDINITRAMFS}" | cpio --extract)
+    else
+        (cd "${INITRAMFSDIR}"; cpio --extract --file="${UNCOMPRESSEDINITRAMFS}")
+    fi
 }
 
 modify_initramfs() {
@@ -2022,7 +2037,13 @@ modify_initramfs() {
 repack_initramfs() {
     show "Deleting old initramfs cpio archive, and repacking..."
     rm ${VERBOSITYFLAG} -f "${UNCOMPRESSEDINITRAMFS}" "${BOOTDIR}/${INITRAMFSNAME}"
-    (cd "${INITRAMFSDIR}"; find . | cpio -H newc --create > "${UNCOMPRESSEDINITRAMFS}")
+
+    if [ -d "${EARLYINITRAMFSDIR}" ]; then
+        (cd "${EARLYINITRAMFSDIR}"; find . | cpio -H newc --create > "${UNCOMPRESSEDINITRAMFS}")
+        rm ${VERBOSITYFLAG} -rf "${EARLYINITRAMFSDIR:?}"/
+    fi
+
+    (cd "${INITRAMFSDIR}"; find . | cpio -H newc --create >> "${UNCOMPRESSEDINITRAMFS}")
     cp ${VERBOSITYFLAG} "${UNCOMPRESSEDINITRAMFS}" "${BOOTDIR}/${INITRAMFSNAME}"
 }
 
