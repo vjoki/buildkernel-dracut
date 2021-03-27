@@ -560,6 +560,7 @@ setup_final_variables() {
     KERNEL_CMD_LINE+="init=${CMDLINE_REAL_INIT} "
     if [ -n "${LUKSKEYFILE}" ]; then
         # rd.luks.key doesn't like PARTUUID
+        # FIXME: checks if partuuid exists => device with keyfile must be plugged in => stage-only requires device with keyfile.
         local KEYFILEUUID
         KEYFILEUUID="$(partuuid_to_uuid "${KEYFILEPARTUUID}")"
         KERNEL_CMD_LINE+="rd.luks.key=${LUKSKEYFILE}:UUID=${KEYFILEUUID} "
@@ -2003,6 +2004,8 @@ unpack_initramfs_dracut() {
     else
         rm ${VERBOSITYFLAG} -rf "${INITRAMFSDIR:?}"/* # wipe any old data
     fi
+    # FIXME: Early cpio is added when using --early-microcode flag. This just removes
+    # the early cpio or fails if none, as it's not checked for and readded when repacking.
     # dracut puts the CPU microcode in a seperate cpio image that is at the beginning
     # of the actual initramfs. We use the builtin skipcpio program to get to it.
     (cd "${INITRAMFSDIR}"; /usr/lib/dracut/skipcpio "${UNCOMPRESSEDINITRAMFS}" | cpio --extract)
