@@ -754,7 +754,7 @@ find_all_efi_boot_entries() {
             NEXTISACTIVE="0"
         fi
         local NEXTUUID
-        NEXTUUID=$(grep -E -o 'HD\([^(]*\)' <<<"${NEXTLINE}" | grep -E -o '[[:xdigit:]]{8}(\-[[:xdigit:]]{4}){3}\-[[:xdigit:]]{12}')
+        NEXTUUID=$(grep -E -o 'HD\([^(]*\)' <<<"${NEXTLINE}" | grep -E -o '[[:xdigit:]]{8}(-[[:xdigit:]]{4}){3}-[[:xdigit:]]{12}')
         local NEXTPATH
         # efibootmgr doesn't print File(..) since efivar 39: https://github.com/rhboot/efivar/pull/232
         NEXTPATH=$(grep -E -o 'File\([^(]*\)' <<<"${NEXTLINE}" | grep -E -o 'e\([^)]*' || grep -E -o ')/\\[^(]*' <<<"${NEXTLINE}")
@@ -1949,10 +1949,6 @@ kernel_build_pass_1() {
         show "Installing modules..."
         ${MAKE} modules_install
     fi
-
-    show "Installing firmware..."
-    show "(where supported; in-kernel firmware was dropped in 4.14)"
-    ${MAKE} firmware_install || true
 }
 
 rebuild_external_modules_if_necessary() {
